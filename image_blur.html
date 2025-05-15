@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>S字フェード画像透過</title>
+  <style>
+    body {
+      font-family: 'Helvetica', sans-serif;
+      padding: 20px;
+      margin: 0;
+      text-align: center;
+      background: #f9f9f9;
+    }
+
+    h2 {
+      margin-top: 10px;
+      color: #333;
+    }
+
+    input[type="file"] {
+      margin: 10px auto;
+    }
+
+    .slider-group {
+      margin: 15px 0;
+    }
+
+    label {
+      display: inline-block;
+      width: 180px;
+      text-align: right;
+      font-size: 14px;
+      margin-right: 10px;
+    }
+
+    input[type="range"] {
+      width: 200px;
+    }
+
+    canvas {
+      max-width: 45vw;  /* 横に並びやすく */
+      height: auto;
+      border: 1px solid #ccc;
+      margin: 10px;
+      background: #fff;
+      display: none;
+    }
+
+    .canvas-container {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      flex-wrap: nowrap; /* 横並びを優先 */
+      overflow-x: auto;
+    }
+
+    .canvas-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0 10px;
+    }
+
+    #downloadBtn {
+      padding: 12px 20px;
+      font-size: 16px;
+      margin-top: 20px;
+      border: none;
+      background: #1976d2;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    #downloadBtn:hover {
+      background: #0d47a1;
+    }
+
+    @media (max-width: 600px) {
+      .canvas-container {
+        flex-direction: column;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      canvas {
+        max-width: 90vw;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<h2>画像の縁をS字フェードで自然に透明化</h2>
+
+<input type="file" id="imageInput" accept="image/*"><br>
+
+<div class="slider-group">
+  <label for="marginSlider">フェード範囲（px）:</label>
+  <input type="range" id="marginSlider" min="0" max="300" value="80" step="1" oninput="updateLabel('margin')">
+  <span id="marginLabel">80</span>
+</div>
+
+<div class="slider-group">
+  <label for="softnessSlider">ぼかし滑らかさ:</label>
+  <input type="range" id="softnessSlider" min="1" max="100" value="15" step="1" oninput="updateLabel('softness')">
+  <span id="softnessLabel">15</span>
+</div>
+
+<div class="canvas-container">
+  <div class="canvas-box">
+    <canvas id="canvasOriginal"></canvas>
+    <span>元画像</span>
+  </div>
+  <div class="canvas-box">
+    <canvas id="canvasProcessed"></canvas>
+    <span>透明フェード後</span>
+  </div>
+</div>
+
+<button id="downloadBtn" onclick="downloadImage()">PNGで保存</button>
+
+<script>
+let loadedImage = null;
+
+document.getElementById('imageInput').addEventListener('change', function () {
+  const file = this.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      loadedImage = img;
+      applyFade();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+function updateLabel(type) {
+  const val = document.getElementById(`${type}Slider`).value;
+  document.getElementById(`${type}Label`).textContent = val;
+  if (loadedImage) applyFade();
+}
+
+function applyFade() {
+  const margin = parseInt(document.getElementById('marginSlider').value);
+  const softness = parseFloat(document.getElementById('softnessSlider').value);
+
+  const MAX_WIDTH = 600;
+  const scale = Math.min(1, MAX_WIDTH / loadedImage.width);
+  const width = Math.floor(loadedImage.width * scale);
+  const height = Math.floor(loadedImage.height * scale);
+
+  const canvasOriginal = document.getElementById('canvasOriginal');
+  const canvasProcessed = document.getElementById('canvasProcessed');
+  const ctxOriginal = canvasOriginal.getContext('2d');
+  const ctxProcessed = canvasProcessed.getContext('2d');
+  canvasOriginal.width = canvasProcessed.width = width;
+  canvasOriginal.height = canvasProcessed.height = height;
+
+  canvasOriginal.style.display = 'block';
+  canvasProcessed.style.display = 'block';
+
+  ctxOriginal.clearRect(0, 0, width, height);
+  ctxOriginal.drawImage(loadedImage, 0, 0, width, height);
+
+  ctxProcessed.clearRect(0, 0, width, height);
+  ctxProcessed.drawImage(loadedImage, 0, 0, width, height);
+  const originalData = ctxProcessed.getImageData(0, 0, width, height);
+  const resultData = ctxProcessed.createImageData(width, height);
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = y * width + x;
+
+      const dx = Math.min(x, width - x - 1);
+      const dy = Math.min(y, height - y - 1);
+      const d = Math.min(dx, dy);
+
+      let strength = 1 / (1 + Math.exp((margin - d) / softness));
+      let alpha = Math.round(strength * 255);
+
+      for (let c = 0; c < 3; c++) {
+        resultData.data[i * 4 + c] = originalData.data[i * 4 + c];
+      }
+      resultData.data[i * 4 + 3] = alpha;
+    }
+  }
+
+  ctxProcessed.putImageData(resultData, 0, 0);
+}
+
+function downloadImage() {
+  const canvas = document.getElementById('canvasProcessed');
+  if (!canvas || canvas.width === 0) {
+    alert("画像を先にアップロードしてください。");
+    return;
+  }
+
+  const ok = confirm("加工後の画像をPNGで保存しますか？");
+  if (!ok) return;
+
+  const link = document.createElement('a');
+  link.download = 's_curve_fade.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+</script>
+
+</body>
+</html>
