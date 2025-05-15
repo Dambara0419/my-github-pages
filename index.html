@@ -1,63 +1,6 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <title>ガウシアンぼかし</title>
-  <style>
-    canvas, img {
-      max-width: 300px;
-      margin: 10px;
-    }
-  </style>
-</head>
-<body>
-  <h2>画像にガウシアンぼかしをかける</h2>
+<!-- 例：既存の見出しの下にリンクを追加 -->
+<h1>My GitHub Pages</h1>
 
-  <input type="file" id="inputImage" accept="image/*"><br>
-  <label>カーネルサイズ（奇数）: <input type="number" id="kernelSize" value="5"></label><br>
-  <label>sigmaX: <input type="number" step="0.1" id="sigmaX" value="5.0"></label><br>
-  <label>sigmaY: <input type="number" step="0.1" id="sigmaY" value="5.0"></label><br>
-  <button onclick="applyBlur()">ぼかす</button><br><br>
-
-  <img id="original" alt="元画像">
-  <canvas id="outputCanvas"></canvas>
-
-  <!-- OpenCV.jsの読み込み -->
-  <script async src="https://docs.opencv.org/4.5.5/opencv.js" onload="onOpenCvReady();" ></script>
-
-  <script>
-    let imgElement = document.getElementById('original');
-    let inputElement = document.getElementById('inputImage');
-
-    inputElement.addEventListener('change', (e) => {
-      imgElement.src = URL.createObjectURL(e.target.files[0]);
-    });
-
-    function onOpenCvReady() {
-      console.log("OpenCV.js ready!");
-    }
-
-    function applyBlur() {
-      let kernelSize = parseInt(document.getElementById('kernelSize').value);
-      let sigmaX = parseFloat(document.getElementById('sigmaX').value);
-      let sigmaY = parseFloat(document.getElementById('sigmaY').value);
-
-      if (kernelSize % 2 === 0) {
-        alert("カーネルサイズは奇数にしてください。");
-        return;
-      }
-
-      let src = cv.imread(imgElement);
-      let dst = new cv.Mat();
-
-      let ksize = new cv.Size(kernelSize, kernelSize);
-      cv.GaussianBlur(src, dst, ksize, sigmaX, sigmaY, cv.BORDER_DEFAULT);
-
-      cv.imshow("outputCanvas", dst);
-
-      // 後片付け
-      src.delete(); dst.delete();
-    }
-  </script>
-</body>
-</html>
+<p>
+  <a href="image_blur.html">画像ぼかしツールへ</a>
+</p>
