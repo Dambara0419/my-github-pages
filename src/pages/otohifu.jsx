@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 
 export default function Otohifu() {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -7,7 +8,9 @@ export default function Otohifu() {
   const audioCtxRef = useRef(null);
   const oscillatorRef = useRef(null);
   const gainNodeRef = useRef(null);
+  const trackRef = useRef(null); // フェーダーの軌道を計算するためのRef
 
+  // --- Web Audio API の制御 ---
   useEffect(() => {
     return () => {
       if (oscillatorRef.current) {
@@ -57,19 +60,63 @@ export default function Otohifu() {
     else playSound();
   };
 
-  const handleFrequencyChange = (e) => {
-    const newFreq = parseFloat(e.target.value);
+  // --- カスタムフェーダーのロジック ---
+  const updateFrequencyFromPointer = (clientY) => {
+    if (!trackRef.current) return;
+    
+    // フェーダーのDOM要素の位置と高さを取得
+    const rect = trackRef.current.getBoundingClientRect();
+    
+    // クリックされたY座標を、フェーダー内の相対的な位置（0 〜 rect.height）に制限
+    let y = Math.max(0, Math.min(clientY - rect.top, rect.height));
+    
+    // 下端が0%、上端が100%になるようにパーセンテージを計算
+    const percent = 1 - (y / rect.height);
+    
+    const minFreq = 100;
+    const maxFreq = 2000;
+    // パーセンテージから新しい周波数を算出
+    const newFreq = Math.round(minFreq + percent * (maxFreq - minFreq));
+    
     setFrequency(newFreq);
 
+    // 再生中なら即座に音程に反映
     if (isPlaying && oscillatorRef.current && audioCtxRef.current) {
       oscillatorRef.current.frequency.setValueAtTime(newFreq, audioCtxRef.current.currentTime);
     }
   };
 
+  // ドラッグ開始（クリック/タップした瞬間）
+  const handlePointerDown = (e) => {
+    e.preventDefault(); // モバイルでのスクロール等のデフォルト動作を防ぐ
+    updateFrequencyFromPointer(e.clientY); // クリックした位置に即座に移動
+
+    // ドラッグ中の処理
+    const handlePointerMove = (moveEvent) => {
+      updateFrequencyFromPointer(moveEvent.clientY);
+    };
+
+    // ドラッグ終了の処理
+    const handlePointerUp = () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+
+    // 画面外までドラッグしても追従するように window にイベントを付与
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+  };
+
+  // ツマミの表示位置（CSS用）を計算（0% 〜 100%）
+  const thumbPositionPercent = ((frequency - 100) / (2000 - 100)) * 100;
+
   return (
     <div className="bg-zinc-800 p-6 rounded-xl shadow-2xl w-48 flex flex-col items-center gap-8 mx-auto mt-10 border border-zinc-700 select-none">
+      <button className="fixed top-0 left-0 bg-blue-500 text-white px-4 py-2 m-4 rounded hover:bg-blue-600 cursor-pointer">
+          <Link to='/'>Back Home</Link>
+      </button>
       
-      {/* LED風の周波数ディスプレイ */}
+      {/* LED風モニター */}
       <div className="w-full bg-black border-2 border-zinc-900 rounded-md p-2 shadow-inner flex flex-col items-center justify-center">
         <span className="text-[10px] text-zinc-500 font-mono tracking-widest mb-1">FREQ (Hz)</span>
         <span className="font-mono text-2xl font-bold text-red-500 tracking-wider drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]">
@@ -77,13 +124,11 @@ export default function Otohifu() {
         </span>
       </div>
 
-      {/* 縦型フェーダー部分 */}
+      {/* 縦型カスタムフェーダー */}
       <div className="relative h-64 w-full flex justify-center items-center">
-        {/* フェーダーの溝（スリット） */}
-        <div className="absolute w-2 h-full bg-black rounded-full shadow-inner pointer-events-none"></div>
         
-        {/* メモリ（目盛り） */}
-        <div className="absolute left-2 h-full flex flex-col justify-between py-2 text-[10px] text-zinc-400 font-mono pointer-events-none">
+        {/* メモリ（左側） */}
+        <div className="absolute left-2 h-full flex flex-col justify-between py-1 text-[10px] text-zinc-400 font-mono pointer-events-none">
           <span>MAX</span>
           <span>-</span>
           <span>-</span>
@@ -91,44 +136,31 @@ export default function Otohifu() {
           <span>MIN</span>
         </div>
 
-        {/* スライダー本体（-rotate-90で縦向きに配置） */}
-        <input
-          type="range"
-          min="100"
-          max="2000"
-          step="1"
-          value={frequency}
-          onChange={handleFrequencyChange}
-          // -rotate-90 によって、見た目の縦横が反転します
-          // thumbの w-5 は画面上での「高さ」、h-14 は画面上での「幅」になります
-          className="w-64 h-8 appearance-none bg-transparent cursor-ns-resize absolute -rotate-90 origin-center
-            focus:outline-none
-
-            [&::-webkit-slider-thumb]:appearance-none 
-            [&::-webkit-slider-thumb]:w-5 
-            [&::-webkit-slider-thumb]:h-14 
-            [&::-webkit-slider-thumb]:bg-zinc-300 
-            [&::-webkit-slider-thumb]:border-x-4
-            [&::-webkit-slider-thumb]:border-zinc-400
-            [&::-webkit-slider-thumb]:rounded-sm 
-            [&::-webkit-slider-thumb]:shadow-[0_4px_6px_rgba(0,0,0,0.5)]
-            [&::-webkit-slider-thumb]:cursor-grab
-            active:[&::-webkit-slider-thumb]:cursor-grabbing
-
-            [&::-moz-range-thumb]:w-5 
-            [&::-moz-range-thumb]:h-14 
-            [&::-moz-range-thumb]:bg-zinc-300 
-            [&::-moz-range-thumb]:border-x-4
-            [&::-moz-range-thumb]:border-zinc-400
-            [&::-moz-range-thumb]:rounded-sm 
-            [&::-moz-range-thumb]:border-none 
-            [&::-moz-range-thumb]:shadow-[0_4px_6px_rgba(0,0,0,0.5)]
-            [&::-moz-range-thumb]:cursor-grab
-            active:[&::-moz-range-thumb]:cursor-grabbing"
-        />
+        {/* トラック（操作エリア）: touch-noneでモバイルブラウザの誤動作を防止 */}
+        <div 
+          ref={trackRef}
+          className="relative h-full w-12 flex justify-center cursor-pointer touch-none"
+          onPointerDown={handlePointerDown}
+        >
+          {/* フェーダーの溝 */}
+          <div className="absolute w-2 h-full bg-black rounded-full shadow-inner pointer-events-none"></div>
+          
+          {/* ツマミ本体 */}
+          <div 
+            className="absolute w-14 h-6 bg-zinc-300 border-x-4 border-zinc-400 rounded-sm shadow-[0_4px_6px_rgba(0,0,0,0.5)] flex items-center justify-center transition-none pointer-events-none"
+            style={{ 
+              bottom: `${thumbPositionPercent}%`, 
+              // ツマミの中心がクリックした位置に合うようにY軸をずらす
+              transform: 'translateY(50%)' 
+            }}
+          >
+            {/* ツマミの滑り止めライン */}
+            <div className="w-8 h-1 bg-zinc-500 rounded-full"></div>
+          </div>
+        </div>
       </div>
 
-      {/* チャンネルON/OFF風の再生ボタンスイッチ */}
+      {/* CH ON/OFF ボタン */}
       <button
         onClick={handleToggle}
         className={`w-full py-3 font-bold text-sm tracking-wider rounded transition-all duration-200 shadow-md ${
