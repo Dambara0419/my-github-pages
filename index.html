@@ -1,106 +1,13 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <title>My GitHub Pages</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: 'Helvetica Neue', sans-serif;
-      background-image: url('img/background.jpg'); /* お好きな背景画像に差し替え */
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-      background-attachment: fixed;
-      color: #fff;
-      text-align: center;
-      overflow-x: hidden;
-    }
-
-    .overlay {
-      background-color: rgba(0, 0, 0, 0.5); /* 背景画像に対するオーバーレイ */
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-    }
-
-    h1 {
-      font-size: 3rem;
-      margin-bottom: 2rem;
-      text-shadow: 2px 2px 5px #000;
-    }
-
-    .links a {
-      display: inline-block;
-      margin: 10px 15px;
-      padding: 12px 24px;
-      background-color: rgba(255, 255, 255, 0.1);
-      border: 1px solid #fff;
-      border-radius: 8px;
-      color: #fff;
-      text-decoration: none;
-      font-size: 1.1rem;
-      transition: background-color 0.3s, transform 0.3s;
-    }
-
-    .links a:hover {
-      background-color: rgba(255, 255, 255, 0.3);
-      transform: scale(1.05);
-    }
-
-    /* 🐾 しっぽのスタイルとアニメーション */
-    .tail {
-      position: fixed;
-      top: 0px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 30vw;
-      transform-origin: top center;
-      animation: sway 3s ease-in-out infinite;
-      z-index: 1000;
-      pointer-events: none;
-    }
-
-    @keyframes sway {
-      0%   { transform: translateX(-50%) rotate(0deg); }
-      25%  { transform: translateX(-50%) rotate(5deg); }
-      50%  { transform: translateX(-50%) rotate(0deg); }
-      75%  { transform: translateX(-50%) rotate(-5deg); }
-      100% { transform: translateX(-50%) rotate(0deg); }
-    }
-
-    @media (max-width: 600px) {
-      h1 {
-        font-size: 2rem;
-      }
-
-      .links a {
-        font-size: 1rem;
-        padding: 10px 18px;
-      }
-
-      .tail {
-        width: 20vw;;
-      }
-    }
-  </style>
-</head>
-<body>
-  <!-- 🐱 しっぽ画像 -->
-  <img src="img/tail_cat.png" alt="tail" class="tail">
-
-  <!-- 📄 本文のレイアウト -->
-  <div class="overlay">
-    <h1>My GitHub Pages</h1>
-    <div class="links">
-      <a href="alpha_img.html">画像透過ツール</a>
-      <a href="image_blur.html">画像の縁をぼかす</a>
-      <a href="image_gaussian.html">画像全体をぼかす</a>
-      <a href="rename_image.html">リネームツール</a>
-    </div>
-  </div>
-</body>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My git-hub-pages</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>
