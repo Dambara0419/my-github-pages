@@ -89,7 +89,7 @@ export default function OtohifuAcc() {
     // 「下げた時に音を高くする」ため、基準値から positionZ を引く。
     const baseFreq = 440;
     const sensitivity = 1.5; // 音階の変わりやすさ（数値を上げると敏感になる）
-    let newFreq = baseFreq - (positionZRef.current * sensitivity);
+    let newFreq = baseFreq + (positionZRef.current * sensitivity);
     
     newFreq = Math.min(2000, Math.max(100, newFreq));
     newFreq = Math.floor(newFreq);
