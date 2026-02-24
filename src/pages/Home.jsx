@@ -7,6 +7,9 @@ function Home(){
         <button>
             <Link to='otohifu'> Go Otohifu </Link>
         </button>
+        <button>
+            <Link to='otohifu_accelator'> Go Otohifu(加速度 Ver.) </Link>
+        </button>
     </>
     )
 }
