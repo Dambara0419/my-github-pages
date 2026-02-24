@@ -15,6 +15,7 @@ export default function OtohifuAcc() {
   const currentFreqRef = useRef(440);
   const velocityZRef = useRef(0);
   const positionZRef = useRef(0);
+  const prevAzRef = useRef(0); // 追加: センサーのブレを吸収するためのRef
 
   // --- Web Audio API の制御 ---
   useEffect(() => {
@@ -65,30 +66,37 @@ export default function OtohifuAcc() {
     setIsPlaying(false);
   };
 
-  // --- 加速度から疑似的な高さを計算する処理 ---
+  // --- 改良版：加速度から高さを計算し、ピタッと止める処理 ---
   const handleMotion = useCallback((event) => {
-    // 画面上向き時、Z軸は画面から天井に向かって伸びるベクトル
-    const az = event.acceleration.z || 0;
+    let az = event.acceleration.z || 0;
 
-    // 1. デッドゾーン（ノイズ除去）: 手のわずかな震えを無視する
-    if (Math.abs(az) > 0.4) {
-      velocityZRef.current += az;
+    // 1. ローパスフィルタ: 手の微小な震え（高周波ノイズ）を滑らかにする
+    az = az * 0.2 + prevAzRef.current * 0.8;
+    prevAzRef.current = az;
+
+    // 2. スマートブレーキ機能
+    if (Math.abs(az) < 0.4) {
+      // 加速度が一定以下の時＝「ユーザーが手を止めた」と判定
+      az = 0;
+      // 残っている慣性（速度）を急速にゼロに近づけ、位置を固定する
+      velocityZRef.current *= 0.5;
+      if (Math.abs(velocityZRef.current) < 0.1) {
+        velocityZRef.current = 0;
+      }
+    } else {
+      // 動かしている最中だけ速度を蓄積する
+      velocityZRef.current += az * 0.4; // 速度の蓄積感度
     }
 
-    // 2. 減衰（ダンピング）: 速度が無限に上がり続けるのを防ぎ、ピタッと止めやすくする
-    velocityZRef.current *= 0.85;
+    // 3. 速度から位置（高さ）を計算
+    positionZRef.current += velocityZRef.current * 0.6; // 位置変化の感度
 
-    // 3. 位置の積分: 速度を足し合わせて「疑似的な高さ」を割り出す
-    positionZRef.current += velocityZRef.current;
+    // 4. 上下の限界値を設定（ドリフトしすぎ防止）
+    positionZRef.current = Math.max(-1000, Math.min(1000, positionZRef.current));
 
-    // 4. 限界値の設定: 上下に振りすぎた時のバグ（ドリフト）を防ぐ
-    positionZRef.current = Math.max(-800, Math.min(800, positionZRef.current));
-
-    // 5. 音程へのマッピング
-    // スマホを下げると az はマイナスになり、positionZ もマイナスになる。
-    // 「下げた時に音を高くする」ため、基準値から positionZ を引く。
+    // 5. 音程へのマッピング（向きは前回ご指定のままです）
     const baseFreq = 440;
-    const sensitivity = 1.5; // 音階の変わりやすさ（数値を上げると敏感になる）
+    const sensitivity = 1.2;
     let newFreq = baseFreq + (positionZRef.current * sensitivity);
     
     newFreq = Math.min(2000, Math.max(100, newFreq));
@@ -143,10 +151,10 @@ export default function OtohifuAcc() {
     }
   };
 
-  // センサーの積分誤差をリセットする機能
   const handleResetPosition = () => {
     velocityZRef.current = 0;
     positionZRef.current = 0;
+    prevAzRef.current = 0;
     setFrequency(440);
     currentFreqRef.current = 440;
     if (oscillatorRef.current && audioCtxRef.current) {
@@ -155,38 +163,37 @@ export default function OtohifuAcc() {
   };
 
   return (
-    <div className="bg-zinc-800 p-6 rounded-xl shadow-2xl w-64 flex flex-col items-center gap-6 mx-auto mt-10 border border-zinc-700 select-none">
+    <div className="bg-zinc-800 p-6 rounded-xl shadow-2xl w-72 flex flex-col items-center gap-6 mx-auto mt-10 border border-zinc-700 select-none">
       <div className="w-full flex justify-between items-center">
         <Link to="/" className="text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors">
             ← Back
         </Link>
-        {/* ドリフト（ズレ）解消用のリセットボタン */}
         <button 
           onClick={handleResetPosition}
-          className="text-[10px] bg-zinc-600 text-zinc-300 px-2 py-1 rounded hover:bg-zinc-500 transition-colors font-mono"
+          className="text-[10px] bg-zinc-600 text-zinc-300 px-3 py-1.5 rounded hover:bg-zinc-500 transition-colors font-mono active:scale-95"
         >
           RESET POS
         </button>
       </div>
       
       {/* LED風モニター */}
-      <div className="w-full bg-black border-2 border-zinc-900 rounded-md p-3 shadow-inner flex flex-col items-center justify-center relative overflow-hidden">
+      <div className="w-full bg-black border-2 border-zinc-900 rounded-md p-4 shadow-inner flex flex-col items-center justify-center relative overflow-hidden">
         {sensorEnabled && (
           <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_5px_rgba(239,68,68,1)]"></div>
         )}
-        <span className="text-[10px] text-zinc-500 font-mono tracking-widest mb-1">ELEVATION FREQ</span>
-        <span className="font-mono text-3xl font-bold text-red-500 tracking-wider drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]">
+        <span className="text-xs text-zinc-500 font-mono tracking-widest mb-1">ELEVATION FREQ</span>
+        <span className="font-mono text-4xl font-bold text-red-500 tracking-wider drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]">
           {frequency.toString().padStart(4, '0')}
         </span>
       </div>
 
       {/* 波形セレクター */}
-      <div className="w-full flex flex-col gap-1">
+      <div className="w-full flex flex-col gap-1.5">
         <label className="text-[10px] text-zinc-400 font-mono tracking-wider">WAVEFORM</label>
         <select 
           value={waveform}
           onChange={handleWaveformChange}
-          className="w-full bg-zinc-900 text-zinc-300 border border-zinc-600 p-2 rounded text-sm font-mono focus:outline-none focus:border-red-500 transition-colors cursor-pointer"
+          className="w-full bg-zinc-900 text-zinc-300 border border-zinc-600 p-2.5 rounded text-sm font-mono focus:outline-none focus:border-red-500 transition-colors cursor-pointer"
         >
           <option value="sine">Sine (サイン波)</option>
           <option value="square">Square (矩形波)</option>
@@ -198,7 +205,7 @@ export default function OtohifuAcc() {
       {/* CH ON/OFF ボタン */}
       <button
         onClick={handleToggle}
-        className={`w-full py-4 font-bold text-lg tracking-wider rounded transition-all duration-200 shadow-md ${
+        className={`w-full py-4 font-bold text-lg tracking-wider rounded transition-all duration-200 shadow-md active:scale-95 ${
           isPlaying 
             ? 'bg-green-500 text-white shadow-[0_0_15px_rgba(34,197,94,0.6)] hover:bg-green-400' 
             : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600 border border-zinc-600 shadow-inner'
@@ -207,8 +214,8 @@ export default function OtohifuAcc() {
         {isPlaying ? 'MOTION ON' : 'MOTION OFF'}
       </button>
 
-      <p className="text-[10px] text-zinc-500 text-center px-1 leading-relaxed">
-        スマホを画面上向きで持ち、地面に近づける(下げる)と高音、持ち上げる(上げる)と低音になります。音程がズレた場合は右上の「RESET」を押してください。
+      <p className="text-[10px] text-zinc-400 text-center px-1 leading-relaxed">
+        スマホを画面上向きで持ち、地面に近づける(下げる)と高音、持ち上げる(上げる)と低音になります。ピタッと止めると音がキープされます。
       </p>
 
     </div>
