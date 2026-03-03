@@ -6,22 +6,33 @@ const cellSize = 10;
 
 // 周囲8方向を調べるための座標オフセット
 const operations = [
-  [0, 1], [0, -1], [1, -1], [-1, 1],
-  [1, 1], [-1, -1], [1, 0], [-1, 0]
+  [0, 1],
+  [0, -1],
+  [1, -1],
+  [-1, 1],
+  [1, 1],
+  [-1, -1],
+  [1, 0],
+  [-1, 0],
 ];
+
+// 初期化用のヘルパー関数
+const generateEmptyGrid = () => Array(numRows).fill(0).map(() => Array(numCols).fill(0));
+
+const generateRandomGrid = () => {
+  const rows = [];
+  for (let i = 0; i < numRows; i++) {
+    rows.push(Array.from(Array(numCols), () => (Math.random() > 0.8 ? 1 : 0)));
+  }
+  return rows;
+};
 
 export default function GameOfLife() {
   const canvasRef = useRef(null);
   const requestRef = useRef(null);
-  
+
   // 盤面の状態（初期状態はランダム）
-  const gridRef = useRef(() => {
-    const rows = [];
-    for (let i = 0; i < numRows; i++) {
-      rows.push(Array.from(Array(numCols), () => (Math.random() > 0.8 ? 1 : 0)));
-    }
-    return rows;
-  });
+  const gridRef = useRef(generateRandomGrid());
 
   const [isRunning, setIsRunning] = useState(false);
   const runningRef = useRef(isRunning);
@@ -32,7 +43,7 @@ export default function GameOfLife() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    
+
     // 画面全体をクリア
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const grid = gridRef.current;
@@ -50,8 +61,7 @@ export default function GameOfLife() {
   // 次の世代の計算ロジック
   const computeNextGen = useCallback(() => {
     const currentGrid = gridRef.current;
-    // ダブルバッファリング用に新しい空の盤面を用意
-    const nextGrid = Array(numRows).fill(0).map(() => Array(numCols).fill(0));
+    const nextGrid = generateEmptyGrid();
 
     for (let i = 0; i < numRows; i++) {
       for (let j = 0; j < numCols; j++) {
@@ -83,7 +93,7 @@ export default function GameOfLife() {
   const handleCanvasClick = (e) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
+
     // キャンバスの左上座標を取得して、クリックしたピクセル座標を計算
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -94,7 +104,12 @@ export default function GameOfLife() {
     const clickedRow = Math.floor(y / cellSize);
 
     // 範囲外クリックの防止
-    if (clickedRow >= 0 && clickedRow < numRows && clickedCol >= 0 && clickedCol < numCols) {
+    if (
+      clickedRow >= 0 &&
+      clickedRow < numRows &&
+      clickedCol >= 0 &&
+      clickedCol < numCols
+    ) {
       // 0と1を反転させる
       gridRef.current[clickedRow][clickedCol] = gridRef.current[clickedRow][clickedCol] ? 0 : 1;
       // 停止中でもクリックした結果がすぐ見えるように再描画
@@ -131,8 +146,10 @@ export default function GameOfLife() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-6 bg-slate-950 p-8">
-      <h1 className="text-3xl font-bold text-slate-100">Conway's Game of Life</h1>
-      
+      <h1 className="text-3xl font-bold text-slate-100">
+        Conway's Game of Life
+      </h1>
+
       <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 shadow-lg">
         <canvas
           ref={canvasRef}
@@ -147,12 +164,32 @@ export default function GameOfLife() {
         <button
           onClick={() => setIsRunning(!isRunning)}
           className={`cursor-pointer rounded-lg px-6 py-2 font-semibold text-white transition-colors ${
-            isRunning 
-              ? 'bg-rose-600 hover:bg-rose-500' 
+            isRunning
+              ? 'bg-rose-600 hover:bg-rose-500'
               : 'bg-emerald-600 hover:bg-emerald-500'
           }`}
         >
           {isRunning ? 'Stop' : 'Start'}
+        </button>
+        <button
+          onClick={() => {
+            setIsRunning(false);
+            gridRef.current = generateEmptyGrid();
+            drawGrid();
+          }}
+          className="cursor-pointer rounded-lg bg-slate-700 px-6 py-2 font-semibold text-white transition-colors hover:bg-slate-600"
+        >
+          Clear
+        </button>
+        <button
+          onClick={() => {
+            setIsRunning(false);
+            gridRef.current = generateRandomGrid();
+            drawGrid();
+          }}
+          className="cursor-pointer rounded-lg bg-indigo-600 px-6 py-2 font-semibold text-white transition-colors hover:bg-indigo-500"
+        >
+          Randomize
         </button>
       </div>
     </div>
