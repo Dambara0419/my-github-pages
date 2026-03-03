@@ -4,6 +4,7 @@ import './App.css';
 import Home from './pages/Home.jsx';
 import Otohifu from './pages/otohifu.jsx';
 import OtohifuAcc from './pages/otohifu_accelator.jsx';
+import GameOfLife from './pages/ca.jsx';
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
         <Route path='/' element={<Home />} />
         <Route path='/otohifu' element={<Otohifu />} />
         <Route path='/otohifu_accelator' element={<OtohifuAcc />} />
+        <Route path='/ca' element={<GameOfLife />} />
       </Routes>
     </BrowserRouter>
   )

@@ -10,6 +10,9 @@ function Home(){
         <button className="p-4">
             <Link to='otohifu_accelator'> Go Otohifu(加速度 Ver.) </Link>
         </button>
+        <button className="p-4">
+            <Link to='ca'> Go CA </Link>
+        </button>
     </>
     )
 }
