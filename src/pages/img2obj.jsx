@@ -4,12 +4,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import JSZip from 'jszip'
 
 const DISPLAY = 400   // canvas display size (px)
-const RES = 500       // mesh resolution: 500×500 = 0.2mm/px
 const MM = 100        // print area mm
-const PX_MM = MM / RES // 0.2mm per pixel
-
 const PREVIEW_SCALE = 5           // downsample factor for 3D preview
-const PREVIEW_RES = RES / PREVIEW_SCALE  // 100×100
+const RES_OPTIONS = [500, 750, 1000]
 
 // オブジェクト間の面共有を防ぐための微小オフセット（0.01mm）
 // 隣接する異なる色のボックスが同一面を共有するとBambuStudioがパス競合を検出するため
@@ -112,18 +109,19 @@ function box(x0, y0, z0, x1, y1, z1, vo) {
   return { v, t }
 }
 
-function buildColorMesh(assignments, colorIdx, zBase, zTop) {
+function buildColorMesh(assignments, colorIdx, zBase, zTop, res) {
   const verts = [], tris = []
-  for (let y = 0; y < RES; y++) {
+  const pxMm = MM / res
+  for (let y = 0; y < res; y++) {
     let sx = -1
-    for (let x = 0; x <= RES; x++) {
-      const hit = x < RES && assignments[y * RES + x] === colorIdx
+    for (let x = 0; x <= res; x++) {
+      const hit = x < res && assignments[y * res + x] === colorIdx
       if (hit && sx === -1) { sx = x }
       else if (!hit && sx !== -1) {
         // EPS で各ボックスを微小縮小し、隣接オブジェクト間の面共有を防ぐ
         const { v, t } = box(
-          sx*PX_MM + EPS, y*PX_MM + EPS, zBase,
-          x*PX_MM  - EPS, (y+1)*PX_MM - EPS, zTop,
+          sx * pxMm + EPS, y * pxMm + EPS, zBase,
+          x * pxMm - EPS, (y + 1) * pxMm - EPS, zTop,
           verts.length
         )
         verts.push(...v); tris.push(...t); sx = -1
@@ -134,15 +132,17 @@ function buildColorMesh(assignments, colorIdx, zBase, zTop) {
 }
 
 // 3Dプレビュー用低解像度メッシュ（PREVIEW_SCALE倍ダウンサンプル）
-function buildColorMeshLow(assignments, colorIdx, zBase, zTop) {
+function buildColorMeshLow(assignments, colorIdx, zBase, zTop, res) {
   const verts = [], tris = []
-  const pm = PX_MM * PREVIEW_SCALE
-  for (let y = 0; y < PREVIEW_RES; y++) {
+  const previewRes = Math.floor(res / PREVIEW_SCALE)
+  const pxMm = MM / res
+  const pm = pxMm * PREVIEW_SCALE
+  for (let y = 0; y < previewRes; y++) {
     let sx = -1
-    for (let x = 0; x <= PREVIEW_RES; x++) {
-      const srcX = Math.min(x * PREVIEW_SCALE, RES - 1)
-      const srcY = Math.min(y * PREVIEW_SCALE, RES - 1)
-      const hit = x < PREVIEW_RES && assignments[srcY * RES + srcX] === colorIdx
+    for (let x = 0; x <= previewRes; x++) {
+      const srcX = Math.min(x * PREVIEW_SCALE, res - 1)
+      const srcY = Math.min(y * PREVIEW_SCALE, res - 1)
+      const hit = x < previewRes && assignments[srcY * res + srcX] === colorIdx
       if (hit && sx === -1) { sx = x }
       else if (!hit && sx !== -1) {
         const { v, t } = box(sx*pm, y*pm, zBase, x*pm, (y+1)*pm, zTop, verts.length)
@@ -169,7 +169,7 @@ ${ts}
     </object>`
 }
 
-async function build3MF(assignments, palette, withBase) {
+async function build3MF(assignments, palette, withBase, res) {
   const objects = []
 
   if (withBase) {
@@ -190,7 +190,7 @@ async function build3MF(assignments, palette, withBase) {
   // 頂点座標でオフセットを埋め込むと BambuStudio が各オブジェクトを
   // 独立して床面ドロップするため重なってしまう。
   for (let c = 0; c < palette.length; c++) {
-    const mesh = buildColorMesh(assignments, c, 0.0, 1.0)
+    const mesh = buildColorMesh(assignments, c, 0.0, 1.0, res)
     if (mesh.verts.length > 0) objects.push({ mesh, name: `color_${c+1}`, zOffset: withBase ? 1 : 0 })
   }
 
@@ -226,7 +226,7 @@ ${buildXML}
 }
 
 // ── 3D Preview ─────────────────────────────────────────────────────────────
-function ThreePreview({ result, baseLayer }) {
+function ThreePreview({ result, baseLayer, resolution }) {
   const mountRef = useRef(null)
 
   useEffect(() => {
@@ -269,7 +269,7 @@ function ThreePreview({ result, baseLayer }) {
     scene.add(colorGroup)
 
     for (let c = 0; c < result.palette.length; c++) {
-      const { verts, tris } = buildColorMeshLow(result.assignments, c, 0.0, 1.0)
+      const { verts, tris } = buildColorMeshLow(result.assignments, c, 0.0, 1.0, resolution)
       const [r, g, b] = result.palette[c]
       if (verts.length === 0) continue
       const positions = new Float32Array(verts.length * 3)
@@ -305,7 +305,7 @@ function ThreePreview({ result, baseLayer }) {
       renderer.dispose()
       if (el.contains(renderer.domElement)) el.removeChild(renderer.domElement)
     }
-  }, [result, baseLayer])
+  }, [result, baseLayer, resolution])
 
   if (!result) return null
   return (
@@ -326,6 +326,7 @@ export default function Img2Obj() {
 
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 })
   const [numColors, setNumColors] = useState(4)
+  const [resolution, setResolution] = useState(1000)
   const [baseLayer, setBaseLayer] = useState(false)
   const [result,    setResult]    = useState(null)
   const [status,    setStatus]    = useState('')
@@ -404,20 +405,21 @@ export default function Img2Obj() {
   const onMouseUp = () => { dragRef.current.active = false }
 
   const getCroppedPixels = () => {
+    const res = resolution
     const off = document.createElement('canvas')
-    off.width = RES; off.height = RES
+    off.width = res; off.height = res
     const ctx = off.getContext('2d')
     ctx.fillStyle = '#fff'
-    ctx.fillRect(0, 0, RES, RES)
-    const r = RES / DISPLAY
+    ctx.fillRect(0, 0, res, res)
+    const r = res / DISPLAY
     ctx.save()
     ctx.translate(transform.x * r, transform.y * r)
     ctx.scale(transform.scale * r, transform.scale * r)
     ctx.drawImage(imgRef.current, 0, 0)
     ctx.restore()
-    const d = ctx.getImageData(0, 0, RES, RES)
-    const px = new Uint8Array(RES * RES * 3)
-    for (let i = 0; i < RES * RES; i++) { px[i*3] = d.data[i*4]; px[i*3+1] = d.data[i*4+1]; px[i*3+2] = d.data[i*4+2] }
+    const d = ctx.getImageData(0, 0, res, res)
+    const px = new Uint8Array(res * res * 3)
+    for (let i = 0; i < res * res; i++) { px[i*3] = d.data[i*4]; px[i*3+1] = d.data[i*4+1]; px[i*3+2] = d.data[i*4+2] }
     return px
   }
 
@@ -430,8 +432,8 @@ export default function Img2Obj() {
     const { palette, assignments } = kmeans(pixels, numColors)
 
     const ctx = previewRef.current.getContext('2d')
-    const imgData = ctx.createImageData(RES, RES)
-    for (let i = 0; i < RES * RES; i++) {
+    const imgData = ctx.createImageData(resolution, resolution)
+    for (let i = 0; i < resolution * resolution; i++) {
       const c = palette[assignments[i]]
       imgData.data[i*4] = c[0]; imgData.data[i*4+1] = c[1]; imgData.data[i*4+2] = c[2]; imgData.data[i*4+3] = 255
     }
@@ -445,7 +447,7 @@ export default function Img2Obj() {
     if (!result) return
     setStatus('processing')
     await new Promise(r => setTimeout(r, 20))
-    const blob = await build3MF(result.assignments, result.palette, baseLayer)
+    const blob = await build3MF(result.assignments, result.palette, baseLayer, resolution)
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
     a.download = 'img2obj.3mf'
@@ -499,6 +501,28 @@ export default function Img2Obj() {
             </div>
           </div>
 
+          <div>
+            <p className="mb-2 font-medium text-sm">解像度を選択</p>
+            <div className="flex gap-2 flex-wrap">
+              {RES_OPTIONS.map(n => (
+                <button
+                  key={n}
+                  onClick={() => {
+                    setResolution(n)
+                    setResult(null)
+                    setStatus('')
+                  }}
+                  style={{ borderColor: resolution === n ? '#646cff' : 'transparent', borderWidth: 2 }}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              現在: {resolution} x {resolution} ({(MM / resolution).toFixed(3)}mm / px)
+            </p>
+          </div>
+
           {/* 土台レイヤー */}
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <input
@@ -526,8 +550,8 @@ export default function Img2Obj() {
           </div>
           <canvas
             ref={previewRef}
-            width={RES}
-            height={RES}
+            width={resolution}
+            height={resolution}
             style={{ width: 200, height: 200, imageRendering: 'pixelated', display: result ? 'block' : 'none' }}
             className="border border-gray-600"
           />
@@ -557,7 +581,7 @@ export default function Img2Obj() {
       </div>
 
       {/* ─ 3D Preview ─ */}
-      <ThreePreview result={result} baseLayer={baseLayer} />
+      <ThreePreview result={result} baseLayer={baseLayer} resolution={resolution} />
     </div>
   )
 }
