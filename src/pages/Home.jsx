@@ -11,12 +11,12 @@ function Home(){
     return (
     <main className="min-h-screen bg-slate-950 px-6 py-16 text-slate-50">
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-10">
-            <section className="overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-cyan-400 via-sky-500 to-indigo-600 p-8 text-left shadow-2xl shadow-cyan-950/40 md:p-12">
+            <section className="overflow-hidden rounded-4xl border border-white/10 bg-linear-to-br from-cyan-400 via-sky-500 to-indigo-600 p-8 text-left shadow-2xl shadow-cyan-950/40 md:p-12">
                 <p className="mb-4 inline-flex rounded-full border border-white/30 bg-white/10 px-4 py-1 text-sm font-medium tracking-[0.2em] text-white/90 uppercase">
                     Experiment Hub
                 </p>
                 <h1 className="max-w-3xl text-4xl font-black tracking-tight text-white md:text-6xl">
-                    肘の皮膚を伸ばしてみよう
+                    
                 </h1>
                 <p className="mt-4 max-w-2xl text-base leading-7 text-white/85 md:text-lg">
                     計測・可視化・画像処理の実験ページをまとめたホームです。下のカードから各ツールに移動できます。

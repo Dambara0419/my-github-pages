@@ -1,4 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
+import * as THREE from 'three'
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import JSZip from 'jszip'
 
 const DISPLAY = 400   // canvas display size (px)
@@ -6,11 +8,13 @@ const RES = 500       // mesh resolution: 500×500 = 0.2mm/px
 const MM = 100        // print area mm
 const PX_MM = MM / RES // 0.2mm per pixel
 
+const PREVIEW_SCALE = 5           // downsample factor for 3D preview
+const PREVIEW_RES = RES / PREVIEW_SCALE  // 100×100
+
 // ── K-means++ (サンプリングで高速化) ──────────────────────────────────────
 function kmeans(pixels, k, maxIter = 30) {
   const n = pixels.length / 3
 
-  // 10K サンプルで重心を求め、最後に全ピクセル割り当て
   const step = Math.max(1, Math.floor(n / 10000))
   const sn = Math.ceil(n / step)
   const sp = new Uint8Array(sn * 3)
@@ -18,7 +22,6 @@ function kmeans(pixels, k, maxIter = 30) {
     sp[i*3] = pixels[i*step*3]; sp[i*3+1] = pixels[i*step*3+1]; sp[i*3+2] = pixels[i*step*3+2]
   }
 
-  // K-means++ 初期化
   const used = new Set()
   const fi = Math.floor(Math.random() * sn)
   used.add(fi)
@@ -49,7 +52,6 @@ function kmeans(pixels, k, maxIter = 30) {
     }
   }
 
-  // サンプル上で反復
   const sa = new Int32Array(sn)
   for (let iter = 0; iter < maxIter; iter++) {
     let changed = false
@@ -74,7 +76,6 @@ function kmeans(pixels, k, maxIter = 30) {
     }
   }
 
-  // 全ピクセルを最終重心に割り当て
   const assignments = new Int32Array(n)
   for (let i = 0; i < n; i++) {
     const r = pixels[i*3], g = pixels[i*3+1], b = pixels[i*3+2]
@@ -123,6 +124,26 @@ function buildColorMesh(assignments, colorIdx, zBase, zTop) {
   return { verts, tris }
 }
 
+// 3Dプレビュー用低解像度メッシュ（PREVIEW_SCALE倍ダウンサンプル）
+function buildColorMeshLow(assignments, colorIdx, zBase, zTop) {
+  const verts = [], tris = []
+  const pm = PX_MM * PREVIEW_SCALE
+  for (let y = 0; y < PREVIEW_RES; y++) {
+    let sx = -1
+    for (let x = 0; x <= PREVIEW_RES; x++) {
+      const srcX = Math.min(x * PREVIEW_SCALE, RES - 1)
+      const srcY = Math.min(y * PREVIEW_SCALE, RES - 1)
+      const hit = x < PREVIEW_RES && assignments[srcY * RES + srcX] === colorIdx
+      if (hit && sx === -1) { sx = x }
+      else if (!hit && sx !== -1) {
+        const { v, t } = box(sx*pm, y*pm, zBase, x*pm, (y+1)*pm, zTop, verts.length)
+        verts.push(...v); tris.push(...t); sx = -1
+      }
+    }
+  }
+  return { verts, tris }
+}
+
 // ── 3MF ───────────────────────────────────────────────────────────────────
 function meshXML(verts, tris, id, name) {
   const vs = verts.map(([x,y,z]) => `        <vertex x="${x.toFixed(3)}" y="${y.toFixed(3)}" z="${z.toFixed(3)}"/>`).join('\n')
@@ -139,14 +160,31 @@ ${ts}
     </object>`
 }
 
-async function build3MF(assignments, palette) {
+async function build3MF(assignments, palette, withBase) {
   const objects = []
+
+  if (withBase) {
+    const bv = [
+      [0,0,0],[MM,0,0],[MM,MM,0],[0,MM,0],
+      [0,0,1],[MM,0,1],[MM,MM,1],[0,MM,1],
+    ]
+    const bt = [
+      [0,2,1],[0,3,2],[4,5,6],[4,6,7],
+      [0,1,5],[0,5,4],[1,2,6],[1,6,5],
+      [2,3,7],[2,7,6],[3,0,4],[3,4,7],
+    ]
+    objects.push({ mesh: { verts: bv, tris: bt }, name: 'base' })
+  }
+
+  const zBase = withBase ? 1.0 : 0.0
+  const zTop  = withBase ? 2.0 : 1.0
+
   for (let c = 0; c < palette.length; c++) {
-    const mesh = buildColorMesh(assignments, c, 0.0, 1.0)
+    const mesh = buildColorMesh(assignments, c, zBase, zTop)
     if (mesh.verts.length > 0) objects.push({ mesh, name: `color_${c+1}` })
   }
 
-  const objsXML = objects.map((o, i) => meshXML(o.mesh.verts, o.mesh.tris, i+1, o.name)).join('\n')
+  const objsXML  = objects.map((o, i) => meshXML(o.mesh.verts, o.mesh.tris, i+1, o.name)).join('\n')
   const buildXML = objects.map((_, i) => `    <item objectid="${i+1}"/>`).join('\n')
 
   const model = `<?xml version="1.0" encoding="UTF-8"?>
@@ -173,19 +211,112 @@ ${buildXML}
   return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
 }
 
+// ── 3D Preview ─────────────────────────────────────────────────────────────
+function ThreePreview({ result, baseLayer }) {
+  const mountRef = useRef(null)
+
+  useEffect(() => {
+    if (!result || !mountRef.current) return
+    const el = mountRef.current
+    const width  = el.clientWidth || 600
+    const height = 320
+
+    const scene    = new THREE.Scene()
+    scene.background = new THREE.Color(0x0f172a)
+
+    const camera   = new THREE.PerspectiveCamera(45, width / height, 0.1, 2000)
+    camera.position.set(50, -70, 90)
+    camera.lookAt(50, 50, 1)
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true })
+    renderer.setSize(width, height)
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    el.appendChild(renderer.domElement)
+
+    // lights
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5))
+    const dir = new THREE.DirectionalLight(0xffffff, 1.2)
+    dir.position.set(60, -80, 120)
+    scene.add(dir)
+    const dir2 = new THREE.DirectionalLight(0xffffff, 0.3)
+    dir2.position.set(-60, 80, 40)
+    scene.add(dir2)
+
+    const addMesh = (verts, tris, color) => {
+      if (verts.length === 0) return
+      const positions = new Float32Array(verts.length * 3)
+      for (let i = 0; i < verts.length; i++) {
+        positions[i*3] = verts[i][0]; positions[i*3+1] = verts[i][1]; positions[i*3+2] = verts[i][2]
+      }
+      const indices = new Uint32Array(tris.length * 3)
+      for (let i = 0; i < tris.length; i++) {
+        indices[i*3] = tris[i][0]; indices[i*3+1] = tris[i][1]; indices[i*3+2] = tris[i][2]
+      }
+      const geo = new THREE.BufferGeometry()
+      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+      geo.setIndex(new THREE.BufferAttribute(indices, 1))
+      geo.computeVertexNormals()
+      scene.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color })))
+    }
+
+    if (baseLayer) {
+      const geo = new THREE.BoxGeometry(MM, MM, 1)
+      geo.translate(MM/2, MM/2, 0.5)
+      scene.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0x888888 })))
+    }
+
+    const zBase = baseLayer ? 1.0 : 0.0
+    const zTop  = baseLayer ? 2.0 : 1.0
+
+    for (let c = 0; c < result.palette.length; c++) {
+      const { verts, tris } = buildColorMeshLow(result.assignments, c, zBase, zTop)
+      const [r, g, b] = result.palette[c]
+      addMesh(verts, tris, new THREE.Color(r/255, g/255, b/255))
+    }
+
+    const controls = new OrbitControls(camera, renderer.domElement)
+    controls.target.set(50, 50, 1)
+    controls.update()
+
+    let animId
+    const animate = () => {
+      animId = requestAnimationFrame(animate)
+      controls.update()
+      renderer.render(scene, camera)
+    }
+    animate()
+
+    return () => {
+      cancelAnimationFrame(animId)
+      controls.dispose()
+      renderer.dispose()
+      if (el.contains(renderer.domElement)) el.removeChild(renderer.domElement)
+    }
+  }, [result, baseLayer])
+
+  if (!result) return null
+  return (
+    <div className="mt-6">
+      <p className="text-xs text-gray-400 mb-2">3Dプレビュー（ドラッグ: 回転 ／ スクロール: ズーム ／ 右ドラッグ: 平行移動）</p>
+      <div ref={mountRef} className="rounded border border-gray-600 overflow-hidden w-full" style={{ height: 320 }} />
+    </div>
+  )
+}
+
 // ── Component ─────────────────────────────────────────────────────────────
 export default function Img2Obj() {
-  const canvasRef = useRef(null)
-  const previewRef = useRef(null)  // 常にDOMに存在させる（条件付きレンダリングしない）
+  const canvasRef   = useRef(null)
+  const previewRef  = useRef(null)
   const fileInputRef = useRef(null)
-  const imgRef = useRef(null)
-  const dragRef = useRef({ active: false, startX: 0, startY: 0, ox: 0, oy: 0 })
+  const imgRef      = useRef(null)
+  const dragRef     = useRef({ active: false, startX: 0, startY: 0, ox: 0, oy: 0 })
 
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 })
   const [numColors, setNumColors] = useState(4)
-  const [result, setResult] = useState(null)
-  const [status, setStatus] = useState('')
-  const [hasImage, setHasImage] = useState(false)
+  const [baseLayer, setBaseLayer] = useState(false)
+  const [result,    setResult]    = useState(null)
+  const [status,    setStatus]    = useState('')
+  const [hasImage,  setHasImage]  = useState(false)
 
   const draw = useCallback((tx) => {
     const canvas = canvasRef.current
@@ -254,7 +385,7 @@ export default function Img2Obj() {
     if (!dragRef.current.active) return
     const rect = canvasRef.current.getBoundingClientRect()
     const dx = (e.clientX - rect.left) - dragRef.current.startX
-    const dy = (e.clientY - rect.top) - dragRef.current.startY
+    const dy = (e.clientY - rect.top)  - dragRef.current.startY
     setTransform(t => ({ ...t, x: dragRef.current.ox + dx, y: dragRef.current.oy + dy }))
   }
   const onMouseUp = () => { dragRef.current.active = false }
@@ -285,7 +416,6 @@ export default function Img2Obj() {
     const pixels = getCroppedPixels()
     const { palette, assignments } = kmeans(pixels, numColors)
 
-    // canvas は常にDOMにあるので setResult 前に描画しても安全
     const ctx = previewRef.current.getContext('2d')
     const imgData = ctx.createImageData(RES, RES)
     for (let i = 0; i < RES * RES; i++) {
@@ -302,7 +432,7 @@ export default function Img2Obj() {
     if (!result) return
     setStatus('processing')
     await new Promise(r => setTimeout(r, 20))
-    const blob = await build3MF(result.assignments, result.palette)
+    const blob = await build3MF(result.assignments, result.palette, baseLayer)
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
     a.download = 'img2obj.3mf'
@@ -356,11 +486,28 @@ export default function Img2Obj() {
             </div>
           </div>
 
+          {/* 土台レイヤー */}
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={baseLayer}
+              onChange={e => setBaseLayer(e.target.checked)}
+              className="w-4 h-4 accent-indigo-400"
+            />
+            <span className="text-sm font-medium">土台レイヤーを追加 (1mm 単色)</span>
+          </label>
+          {baseLayer && (
+            <p className="text-xs text-gray-500 -mt-2">
+              カラー層の下に 100×100×1mm の土台が追加されます。<br />
+              BambuStudio で "base" オブジェクトにフィラメントを割り当ててください。
+            </p>
+          )}
+
           <button onClick={handlePreview} disabled={!hasImage || isProcessing}>
             {isProcessing ? '処理中...' : 'プレビュー生成'}
           </button>
 
-          {/* 常に1つだけDOMに存在。result の有無でCSSのみ切り替え */}
+          {/* 量子化プレビュー */}
           <div style={{ display: result ? 'block' : 'none' }}>
             <p className="text-xs text-gray-400 mb-2">量子化プレビュー</p>
           </div>
@@ -395,6 +542,9 @@ export default function Img2Obj() {
           )}
         </div>
       </div>
+
+      {/* ─ 3D Preview ─ */}
+      <ThreePreview result={result} baseLayer={baseLayer} />
     </div>
   )
 }
