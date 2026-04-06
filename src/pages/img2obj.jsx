@@ -11,6 +11,10 @@ const PX_MM = MM / RES // 0.2mm per pixel
 const PREVIEW_SCALE = 5           // downsample factor for 3D preview
 const PREVIEW_RES = RES / PREVIEW_SCALE  // 100×100
 
+// オブジェクト間の面共有を防ぐための微小オフセット（0.01mm）
+// 隣接する異なる色のボックスが同一面を共有するとBambuStudioがパス競合を検出するため
+const EPS = 0.01
+
 // ── K-means++ (サンプリングで高速化) ──────────────────────────────────────
 function kmeans(pixels, k, maxIter = 30) {
   const n = pixels.length / 3
@@ -116,7 +120,12 @@ function buildColorMesh(assignments, colorIdx, zBase, zTop) {
       const hit = x < RES && assignments[y * RES + x] === colorIdx
       if (hit && sx === -1) { sx = x }
       else if (!hit && sx !== -1) {
-        const { v, t } = box(sx*PX_MM, y*PX_MM, zBase, x*PX_MM, (y+1)*PX_MM, zTop, verts.length)
+        // EPS で各ボックスを微小縮小し、隣接オブジェクト間の面共有を防ぐ
+        const { v, t } = box(
+          sx*PX_MM + EPS, y*PX_MM + EPS, zBase,
+          x*PX_MM  - EPS, (y+1)*PX_MM - EPS, zTop,
+          verts.length
+        )
         verts.push(...v); tris.push(...t); sx = -1
       }
     }
