@@ -182,19 +182,24 @@ async function build3MF(assignments, palette, withBase) {
       [0,1,5],[0,5,4],[1,2,6],[1,6,5],
       [2,3,7],[2,7,6],[3,0,4],[3,4,7],
     ]
-    objects.push({ mesh: { verts: bv, tris: bt }, name: 'base' })
+    objects.push({ mesh: { verts: bv, tris: bt }, name: 'base', zOffset: 0 })
   }
 
-  const zBase = withBase ? 1.0 : 0.0
-  const zTop  = withBase ? 2.0 : 1.0
-
+  // カラーメッシュは常にローカル座標 z=0〜1 で生成し、
+  // ベース層がある場合は <item transform> で z+1mm オフセットする。
+  // 頂点座標でオフセットを埋め込むと BambuStudio が各オブジェクトを
+  // 独立して床面ドロップするため重なってしまう。
   for (let c = 0; c < palette.length; c++) {
-    const mesh = buildColorMesh(assignments, c, zBase, zTop)
-    if (mesh.verts.length > 0) objects.push({ mesh, name: `color_${c+1}` })
+    const mesh = buildColorMesh(assignments, c, 0.0, 1.0)
+    if (mesh.verts.length > 0) objects.push({ mesh, name: `color_${c+1}`, zOffset: withBase ? 1 : 0 })
   }
 
   const objsXML  = objects.map((o, i) => meshXML(o.mesh.verts, o.mesh.tris, i+1, o.name)).join('\n')
-  const buildXML = objects.map((_, i) => `    <item objectid="${i+1}"/>`).join('\n')
+  const buildXML = objects.map((o, i) => {
+    // 3MF の列優先 3×4 行列: 最後の3値が x,y,z 平行移動
+    const t = o.zOffset > 0 ? ` transform="1 0 0 0 1 0 0 0 1 0 0 ${o.zOffset}"` : ''
+    return `    <item objectid="${i+1}"${t}/>`
+  }).join('\n')
 
   const model = `<?xml version="1.0" encoding="UTF-8"?>
 <model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
@@ -251,8 +256,22 @@ function ThreePreview({ result, baseLayer }) {
     dir2.position.set(-60, 80, 40)
     scene.add(dir2)
 
-    const addMesh = (verts, tris, color) => {
-      if (verts.length === 0) return
+    if (baseLayer) {
+      const geo = new THREE.BoxGeometry(MM, MM, 1)
+      geo.translate(MM/2, MM/2, 0.5)
+      scene.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0x888888 })))
+    }
+
+    // カラー層は常に z=0〜1 のローカルメッシュ。
+    // ベース層がある場合は Group を z+1 平行移動して重なりを防ぐ（3MF の transform と同じ方針）。
+    const colorGroup = new THREE.Group()
+    colorGroup.position.z = baseLayer ? 1.0 : 0.0
+    scene.add(colorGroup)
+
+    for (let c = 0; c < result.palette.length; c++) {
+      const { verts, tris } = buildColorMeshLow(result.assignments, c, 0.0, 1.0)
+      const [r, g, b] = result.palette[c]
+      if (verts.length === 0) continue
       const positions = new Float32Array(verts.length * 3)
       for (let i = 0; i < verts.length; i++) {
         positions[i*3] = verts[i][0]; positions[i*3+1] = verts[i][1]; positions[i*3+2] = verts[i][2]
@@ -265,22 +284,7 @@ function ThreePreview({ result, baseLayer }) {
       geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
       geo.setIndex(new THREE.BufferAttribute(indices, 1))
       geo.computeVertexNormals()
-      scene.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color })))
-    }
-
-    if (baseLayer) {
-      const geo = new THREE.BoxGeometry(MM, MM, 1)
-      geo.translate(MM/2, MM/2, 0.5)
-      scene.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0x888888 })))
-    }
-
-    const zBase = baseLayer ? 1.0 : 0.0
-    const zTop  = baseLayer ? 2.0 : 1.0
-
-    for (let c = 0; c < result.palette.length; c++) {
-      const { verts, tris } = buildColorMeshLow(result.assignments, c, zBase, zTop)
-      const [r, g, b] = result.palette[c]
-      addMesh(verts, tris, new THREE.Color(r/255, g/255, b/255))
+      colorGroup.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: new THREE.Color(r/255, g/255, b/255) })))
     }
 
     const controls = new OrbitControls(camera, renderer.domElement)
