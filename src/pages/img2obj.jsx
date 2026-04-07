@@ -6,7 +6,7 @@ import JSZip from 'jszip'
 const DISPLAY = 400   // canvas display size (px)
 const MM = 100        // print area mm
 const PREVIEW_SCALE = 5           // downsample factor for 3D preview
-const RES_OPTIONS = [500, 750, 1000]
+const RES_OPTIONS = [1000, 1500, 2000]
 
 // オブジェクト間の面共有を防ぐための微小オフセット（0.01mm）
 // 隣接する異なる色のボックスが同一面を共有するとBambuStudioがパス競合を検出するため
