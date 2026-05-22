@@ -108,19 +108,12 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* 比較ステップをビューポート幅いっぱいに広げる */
-    #s-compare.active {
-      width: 100vw;
-      margin-left: calc(50% - 50vw);
-    }
-
     .compare-grid {
       display: flex;
       gap: 1rem;
       flex-wrap: nowrap;
       justify-content: center;
       align-items: flex-start;
-      padding: 0 0.5rem;
       width: 100%;
     }
 
@@ -427,8 +420,9 @@ async function buildThatcher(src) {
   // ビューポート幅から表示サイズを動的に計算
   const avail  = Math.min(window.innerWidth, 960) - 24;
   const single = Math.min(src.width, avail);
-  // 比較: ビューポート全幅を2等分（gap 16px + 両端 padding 16px を引く）
-  const cmp = Math.min(src.width, Math.floor((window.innerWidth - 32) / 2));
+  // 比較: main の実効幅（max 960px）を2等分
+  const mainW = Math.min(window.innerWidth, 960) - 24; // 左右 padding 12px×2
+  const cmp   = Math.min(src.width, Math.floor((mainW - 16) / 2)); // gap 16px
 
   drawScaled(tc, thatcherCv, single);
   drawScaled(tc, invCv,      cmp);
