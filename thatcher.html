@@ -108,23 +108,25 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* 比較ステップをビューポート幅いっぱいに広げる */
+    #s-compare.active {
+      width: 100vw;
+      margin-left: calc(50% - 50vw);
+    }
+
     .compare-grid {
       display: flex;
-      gap: 1.5rem;
-      flex-wrap: wrap;
+      gap: 1rem;
+      flex-wrap: nowrap;
       justify-content: center;
       align-items: flex-start;
+      padding: 0 0.5rem;
       width: 100%;
     }
 
-    /* 画面が狭い場合は縦並びにして各画像を大きく表示 */
-    @media (max-width: 560px) {
-      .compare-grid { flex-direction: column; align-items: center; }
-    }
-
-    .compare-card { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
+    .compare-card { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; min-width: 0; }
     .compare-card h3 { font-size: 0.9rem; font-weight: 700; text-align: center; }
-    .compare-card p { font-size: 0.75rem; color: var(--muted); text-align: center; max-width: 280px; line-height: 1.5; }
+    .compare-card p { font-size: 0.75rem; color: var(--muted); text-align: center; line-height: 1.5; }
 
     .dots { display: flex; gap: 0.5rem; }
     .dot { width: 8px; height: 8px; border-radius: 50%; background: #334155; transition: background 0.2s; }
@@ -425,10 +427,8 @@ async function buildThatcher(src) {
   // ビューポート幅から表示サイズを動的に計算
   const avail  = Math.min(window.innerWidth, 960) - 24;
   const single = Math.min(src.width, avail);
-  const narrow = window.innerWidth <= 560;
-  const cmp    = narrow
-    ? Math.min(src.width, avail)                        // 縦並び：全幅
-    : Math.min(src.width, Math.floor((avail - 24) / 2)); // 横並び：半幅
+  // 比較: ビューポート全幅を2等分（gap 16px + 両端 padding 16px を引く）
+  const cmp = Math.min(src.width, Math.floor((window.innerWidth - 32) / 2));
 
   drawScaled(tc, thatcherCv, single);
   drawScaled(tc, invCv,      cmp);
