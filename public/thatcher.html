@@ -332,15 +332,38 @@ function flipRegion(src, destCtx, { x, y, w, h }) {
   h = Math.min(h, src.height - y);
   if (w <= 0 || h <= 0) return;
 
-  const tmp = document.createElement('canvas');
-  tmp.width = w; tmp.height = h;
-  tmp.getContext('2d').drawImage(src, x, y, w, h, 0, 0, w, h);
+  // 1. 反転した領域を描画
+  const flipped = document.createElement('canvas');
+  flipped.width = w; flipped.height = h;
+  const fc = flipped.getContext('2d');
+  fc.save();
+  fc.translate(w / 2, h / 2);
+  fc.rotate(Math.PI);
+  fc.drawImage(src, x, y, w, h, -w / 2, -h / 2, w, h);
+  fc.restore();
 
-  destCtx.save();
-  destCtx.translate(x + w / 2, y + h / 2);
-  destCtx.rotate(Math.PI);
-  destCtx.drawImage(tmp, -w / 2, -h / 2);
-  destCtx.restore();
+  // 2. 楕円グラデーションマスク（中心：不透明 → 端：透明）
+  //    scale() で円グラデーションを楕円に変換する
+  const mask = document.createElement('canvas');
+  mask.width = w; mask.height = h;
+  const mc = mask.getContext('2d');
+  mc.save();
+  mc.translate(w / 2, h / 2);
+  mc.scale(w / 2, h / 2); // 単位楕円空間へ変換
+  const grad = mc.createRadialGradient(0, 0, 0, 0, 0, 1);
+  grad.addColorStop(0,    'rgba(0,0,0,1)');
+  grad.addColorStop(0.55, 'rgba(0,0,0,1)'); // 中心55%は完全不透明
+  grad.addColorStop(1.0,  'rgba(0,0,0,0)'); // 端で透明
+  mc.fillStyle = grad;
+  mc.fillRect(-1, -1, 2, 2);
+  mc.restore();
+
+  // 3. マスクを反転キャンバスに適用（destination-in = マスクのα値で切り抜き）
+  fc.globalCompositeOperation = 'destination-in';
+  fc.drawImage(mask, 0, 0);
+
+  // 4. フェードした反転領域を合成
+  destCtx.drawImage(flipped, x, y);
 }
 
 async function buildThatcher(src) {
