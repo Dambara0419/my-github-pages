@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>サッチャー錯視体験</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #020617;
+      --surface: #0f172a;
+      --border:  rgba(255,255,255,0.1);
+      --text:    #f1f5f9;
+      --muted:   #94a3b8;
+      --blue:    #0ea5e9;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 0.75rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .back-link {
+      font-size: 0.75rem;
+      background: #3b82f6;
+      color: white;
+      padding: 0.25rem 0.75rem;
+      border-radius: 0.375rem;
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+    .back-link:hover { background: #2563eb; }
+
+    h1 { font-size: 1.1rem; font-weight: 700; }
+
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 2rem 1rem 4rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .step { display: none; flex-direction: column; align-items: center; gap: 1.25rem; width: 100%; }
+    .step.active { display: flex; }
+
+    .note {
+      font-size: 0.875rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.7;
+      max-width: 480px;
+    }
+    .note b { color: var(--text); }
+
+    #video {
+      width: 100%;
+      max-width: 480px;
+      border-radius: 0.75rem;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      display: block;
+      transform: scaleX(-1); /* selfie mirror */
+    }
+
+    canvas { display: block; border-radius: 0.5rem; border: 1px solid var(--border); }
+    .rotated { transform: rotate(180deg); }
+
+    .btn-row { display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; }
+
+    button {
+      padding: 0.625rem 1.5rem;
+      border-radius: 0.5rem;
+      border: none;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button:not(:disabled):active { transform: scale(0.97); }
+
+    .btn-primary   { background: var(--blue); color: #fff; }
+    .btn-primary:not(:disabled):hover { background: #0284c7; }
+    .btn-secondary { background: #334155; color: #f1f5f9; }
+    .btn-secondary:not(:disabled):hover { background: #475569; }
+    .btn-accent    { background: #8b5cf6; color: #fff; }
+    .btn-accent:not(:disabled):hover { background: #7c3aed; }
+
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .compare-grid {
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .compare-card { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
+    .compare-card h3 { font-size: 0.9rem; font-weight: 700; text-align: center; }
+    .compare-card p { font-size: 0.75rem; color: var(--muted); text-align: center; max-width: 200px; line-height: 1.5; }
+
+    .dots { display: flex; gap: 0.5rem; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #334155; transition: background 0.2s; }
+    .dot.on { background: var(--blue); }
+  </style>
+</head>
+<body>
+
+<header>
+  <a class="back-link" href="./">← Back</a>
+  <h1>サッチャー錯視体験</h1>
+</header>
+
+<main>
+  <div class="dots">
+    <div class="dot on" id="d0"></div>
+    <div class="dot"    id="d1"></div>
+    <div class="dot"    id="d2"></div>
+    <div class="dot"    id="d3"></div>
+  </div>
+
+  <!-- Step 1: Camera -->
+  <div class="step active" id="s-camera">
+    <p class="note" id="initNote">AIモデルを読み込み中...</p>
+    <video id="video" autoplay playsinline muted></video>
+    <div class="btn-row">
+      <button class="btn-primary" id="captureBtn" disabled>読み込み中...</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Processing -->
+  <div class="step" id="s-processing">
+    <div class="spinner"></div>
+    <p class="note">顔を検出して錯視を生成中...</p>
+  </div>
+
+  <!-- Step 3: Thatcher upside-down -->
+  <div class="step" id="s-thatcher">
+    <p class="note">
+      目と口を反転させた顔を、<b>逆さまに</b>表示しています。<br>
+      違和感はありますか？
+    </p>
+    <canvas id="thatcherCanvas" class="rotated"></canvas>
+    <div class="btn-row">
+      <button class="btn-secondary" id="retakeBtn1">撮り直す</button>
+      <button class="btn-accent"    id="nextBtn">正立させてみる</button>
+    </div>
+  </div>
+
+  <!-- Step 4: Compare -->
+  <div class="step" id="s-compare">
+    <p class="note">同じ画像です。正立させると印象はどう変わりましたか？</p>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <h3>逆さま（倒立）</h3>
+        <canvas id="invCanvas" class="rotated"></canvas>
+        <p>目・口が反転していても<br>違和感に気づきにくい</p>
+      </div>
+      <div class="compare-card">
+        <h3>正立</h3>
+        <canvas id="upCanvas"></canvas>
+        <p>正立すると反転が明らかで<br>不気味に見える</p>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-secondary" id="retakeBtn2">最初からやり直す</button>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+// ── MediaPipe ─────────────────────────────────────────────────────────────
+const MP_VERSION = '0.10.21';
+const MP_CDN    = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}`;
+const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+
+// 478-point face mesh landmark indices
+const EYE_L = [33,  7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246];
+const EYE_R = [362,382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398];
+const MOUTH = [61, 185,  40,  39,  37,   0, 267, 269, 270, 409, 291, 375, 321, 405, 314,  17,  84, 181,  91, 146];
+
+// ── Config ────────────────────────────────────────────────────────────────
+const CAPTURE_MAX    = 640;
+const DISPLAY_SINGLE = 360;
+const DISPLAY_CMP    = 240;
+
+// ── DOM ───────────────────────────────────────────────────────────────────
+const video      = document.getElementById('video');
+const captureBtn = document.getElementById('captureBtn');
+const initNote   = document.getElementById('initNote');
+const thatcherCv = document.getElementById('thatcherCanvas');
+const invCv      = document.getElementById('invCanvas');
+const upCv       = document.getElementById('upCanvas');
+
+let mediaStream = null;
+let landmarker  = null;
+
+// ── MediaPipe init ────────────────────────────────────────────────────────
+async function initLandmarker() {
+  const { FaceLandmarker, FilesetResolver } =
+    await import(`${MP_CDN}/vision_bundle.mjs`);
+  const fileset = await FilesetResolver.forVisionTasks(`${MP_CDN}/wasm`);
+  landmarker = await FaceLandmarker.createFromOptions(fileset, {
+    baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
+    runningMode: 'IMAGE',
+    numFaces: 1,
+  });
+}
+
+// ── Steps ─────────────────────────────────────────────────────────────────
+const STEP_IDS = ['s-camera', 's-processing', 's-thatcher', 's-compare'];
+function showStep(id) {
+  STEP_IDS.forEach((s, i) => {
+    document.getElementById(s).classList.toggle('active', s === id);
+    document.getElementById('d' + i).classList.toggle('on', i <= STEP_IDS.indexOf(id));
+  });
+}
+
+// ── Camera ────────────────────────────────────────────────────────────────
+async function startCamera() {
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false,
+    });
+    video.srcObject = mediaStream;
+  } catch (e) {
+    alert('カメラを起動できませんでした。\n' + e.message);
+  }
+}
+
+function stopCamera() {
+  if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+}
+
+captureBtn.addEventListener('click', async () => {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (!vw || !vh) { alert('カメラが準備できていません。'); return; }
+
+  const sc = Math.min(CAPTURE_MAX / vw, CAPTURE_MAX / vh, 1);
+  const cw = Math.round(vw * sc), ch = Math.round(vh * sc);
+
+  // Capture mirrored (matches selfie preview)
+  const src = document.createElement('canvas');
+  src.width = cw; src.height = ch;
+  const sx = src.getContext('2d');
+  sx.save(); sx.translate(cw, 0); sx.scale(-1, 1);
+  sx.drawImage(video, 0, 0, cw, ch);
+  sx.restore();
+
+  stopCamera();
+  showStep('s-processing');
+  await new Promise(r => setTimeout(r, 60)); // allow spinner to render
+
+  try {
+    await buildThatcher(src);
+  } catch (e) {
+    console.error(e);
+    alert('処理に失敗しました。もう一度お試しください。');
+    showStep('s-camera');
+    startCamera();
+  }
+});
+
+// ── Face detection ─────────────────────────────────────────────────────────
+function detectRegions(canvas) {
+  if (landmarker) {
+    const result = landmarker.detect(canvas);
+    if (result.faceLandmarks?.length) {
+      return regionsFromLandmarks(result.faceLandmarks[0], canvas.width, canvas.height);
+    }
+  }
+  return fallbackRegions(canvas.width, canvas.height);
+}
+
+function regionsFromLandmarks(lm, W, H) {
+  const pt = i => ({ x: lm[i].x * W, y: lm[i].y * H });
+  return [
+    bboxOf(EYE_L.map(pt), 1.6),
+    bboxOf(EYE_R.map(pt), 1.6),
+    bboxOf(MOUTH.map(pt), 1.5),
+  ];
+}
+
+function bboxOf(pts, margin) {
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  const y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const w = (x1 - x0) * margin, h = (y1 - y0) * margin;
+  const cx = (x0 + x1) / 2,    cy = (y0 + y1) / 2;
+  return { x: cx - w / 2, y: cy - h / 2, w, h };
+}
+
+// Proportional fallback when no face detected
+function fallbackRegions(W, H) {
+  return [
+    { x: W * 0.19, y: H * 0.30, w: W * 0.22, h: H * 0.14 },
+    { x: W * 0.59, y: H * 0.30, w: W * 0.22, h: H * 0.14 },
+    { x: W * 0.31, y: H * 0.58, w: W * 0.38, h: H * 0.13 },
+  ];
+}
+
+// ── Thatcher effect ───────────────────────────────────────────────────────
+function flipRegion(src, destCtx, { x, y, w, h }) {
+  x = Math.round(x); y = Math.round(y);
+  w = Math.round(w); h = Math.round(h);
+  if (x < 0) { w += x; x = 0; }
+  if (y < 0) { h += y; y = 0; }
+  w = Math.min(w, src.width - x);
+  h = Math.min(h, src.height - y);
+  if (w <= 0 || h <= 0) return;
+
+  const tmp = document.createElement('canvas');
+  tmp.width = w; tmp.height = h;
+  tmp.getContext('2d').drawImage(src, x, y, w, h, 0, 0, w, h);
+
+  destCtx.save();
+  destCtx.translate(x + w / 2, y + h / 2);
+  destCtx.rotate(Math.PI);
+  destCtx.drawImage(tmp, -w / 2, -h / 2);
+  destCtx.restore();
+}
+
+async function buildThatcher(src) {
+  const regions = detectRegions(src);
+
+  const tc = document.createElement('canvas');
+  tc.width = src.width; tc.height = src.height;
+  const tcx = tc.getContext('2d');
+  tcx.drawImage(src, 0, 0);
+  regions.forEach(r => flipRegion(src, tcx, r));
+
+  drawScaled(tc, thatcherCv, DISPLAY_SINGLE);
+  drawScaled(tc, invCv,      DISPLAY_CMP);
+  drawScaled(tc, upCv,       DISPLAY_CMP);
+
+  showStep('s-thatcher');
+}
+
+function drawScaled(src, dest, maxW) {
+  const w = Math.min(src.width, maxW);
+  const h = Math.round(src.height * w / src.width);
+  dest.width = w; dest.height = h;
+  dest.getContext('2d').drawImage(src, 0, 0, w, h);
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────
+document.getElementById('nextBtn').addEventListener('click', () => showStep('s-compare'));
+document.getElementById('retakeBtn1').addEventListener('click', () => { showStep('s-camera'); startCamera(); });
+document.getElementById('retakeBtn2').addEventListener('click', () => { showStep('s-camera'); startCamera(); });
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+startCamera();
+
+initLandmarker()
+  .then(() => {
+    initNote.textContent = '正面を向いて顔を中央に入れ、撮影するを押してください。';
+    captureBtn.textContent = '撮影する';
+    captureBtn.disabled = false;
+  })
+  .catch(e => {
+    console.warn('MediaPipe init failed, using proportional fallback:', e);
+    initNote.textContent = '正面を向いて顔を中央に入れ、撮影するを押してください。（簡易モード）';
+    captureBtn.textContent = '撮影する';
+    captureBtn.disabled = false;
+  });
+</script>
+</body>
+</html>
