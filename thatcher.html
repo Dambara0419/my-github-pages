@@ -47,14 +47,14 @@
     main {
       max-width: 960px;
       margin: 0 auto;
-      padding: 2rem 1rem 4rem;
+      padding: 1.25rem 0.75rem 3rem;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 1.5rem;
+      gap: 1.25rem;
     }
 
-    .step { display: none; flex-direction: column; align-items: center; gap: 1.25rem; width: 100%; }
+    .step { display: none; flex-direction: column; align-items: center; gap: 1rem; width: 100%; }
     .step.active { display: flex; }
 
     .note {
@@ -62,13 +62,12 @@
       color: var(--muted);
       text-align: center;
       line-height: 1.7;
-      max-width: 480px;
+      max-width: 600px;
     }
     .note b { color: var(--text); }
 
     #video {
       width: 100%;
-      max-width: 480px;
       border-radius: 0.75rem;
       border: 1px solid var(--border);
       background: var(--surface);
@@ -76,7 +75,7 @@
       transform: scaleX(-1); /* selfie mirror */
     }
 
-    canvas { display: block; border-radius: 0.5rem; border: 1px solid var(--border); }
+    canvas { display: block; border-radius: 0.5rem; border: 1px solid var(--border); max-width: 100%; }
     .rotated { transform: rotate(180deg); }
 
     .btn-row { display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; }
@@ -111,15 +110,21 @@
 
     .compare-grid {
       display: flex;
-      gap: 2rem;
+      gap: 1.5rem;
       flex-wrap: wrap;
       justify-content: center;
       align-items: flex-start;
+      width: 100%;
+    }
+
+    /* 画面が狭い場合は縦並びにして各画像を大きく表示 */
+    @media (max-width: 560px) {
+      .compare-grid { flex-direction: column; align-items: center; }
     }
 
     .compare-card { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
     .compare-card h3 { font-size: 0.9rem; font-weight: 700; text-align: center; }
-    .compare-card p { font-size: 0.75rem; color: var(--muted); text-align: center; max-width: 200px; line-height: 1.5; }
+    .compare-card p { font-size: 0.75rem; color: var(--muted); text-align: center; max-width: 280px; line-height: 1.5; }
 
     .dots { display: flex; gap: 0.5rem; }
     .dot { width: 8px; height: 8px; border-radius: 50%; background: #334155; transition: background 0.2s; }
@@ -202,9 +207,7 @@ const EYE_R = [362,382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 3
 const MOUTH = [61, 185,  40,  39,  37,   0, 267, 269, 270, 409, 291, 375, 321, 405, 314,  17,  84, 181,  91, 146];
 
 // ── Config ────────────────────────────────────────────────────────────────
-const CAPTURE_MAX    = 640;
-const DISPLAY_SINGLE = 360;
-const DISPLAY_CMP    = 240;
+const CAPTURE_MAX = 1280;
 
 // ── DOM ───────────────────────────────────────────────────────────────────
 const video      = document.getElementById('video');
@@ -375,9 +378,17 @@ async function buildThatcher(src) {
   tcx.drawImage(src, 0, 0);
   regions.forEach(r => flipRegion(src, tcx, r));
 
-  drawScaled(tc, thatcherCv, DISPLAY_SINGLE);
-  drawScaled(tc, invCv,      DISPLAY_CMP);
-  drawScaled(tc, upCv,       DISPLAY_CMP);
+  // ビューポート幅から表示サイズを動的に計算
+  const avail  = Math.min(window.innerWidth, 960) - 24;
+  const single = Math.min(src.width, avail);
+  const narrow = window.innerWidth <= 560;
+  const cmp    = narrow
+    ? Math.min(src.width, avail)                        // 縦並び：全幅
+    : Math.min(src.width, Math.floor((avail - 24) / 2)); // 横並び：半幅
+
+  drawScaled(tc, thatcherCv, single);
+  drawScaled(tc, invCv,      cmp);
+  drawScaled(tc, upCv,       cmp);
 
   showStep('s-thatcher');
 }
