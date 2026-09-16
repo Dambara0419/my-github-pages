@@ -1,0 +1,14 @@
+---
+import Layout from '../layouts/Layout.astro'
+import { withBase } from '../utils/withBase.js'
+---
+
+<Layout title="ページが見つかりません">
+  <main class="flex min-h-screen flex-col items-center justify-center gap-6 px-6 text-center">
+    <p class="text-6xl font-black text-cyan-300">404</p>
+    <p class="text-slate-300">お探しのページは見つかりませんでした。</p>
+    <a href={withBase('/')} class="rounded-lg bg-cyan-500 px-5 py-2 font-semibold text-slate-950 transition-colors hover:bg-cyan-400">
+      ホームへ戻る
+    </a>
+  </main>
+</Layout>

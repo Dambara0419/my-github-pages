@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { withBase } from '../utils/withBase.js';
 
 export default function Otohifu() {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -121,9 +121,9 @@ export default function Otohifu() {
   return (
     <div className="bg-zinc-800 p-6 rounded-xl shadow-2xl w-56 flex flex-col items-center gap-6 mx-auto mt-10 border border-zinc-700 select-none relative">
       <div className="w-full flex justify-start -mb-2.5">
-        <Link to="/" className="text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors">
+        <a href={withBase('/')} className="text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors">
             ← Back
-        </Link>
+        </a>
       </div>
       
       {/* LED風モニター */}

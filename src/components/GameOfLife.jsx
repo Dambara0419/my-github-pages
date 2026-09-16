@@ -35,8 +35,6 @@ export default function GameOfLife() {
   const gridRef = useRef(generateRandomGrid());
 
   const [isRunning, setIsRunning] = useState(false);
-  const runningRef = useRef(isRunning);
-  runningRef.current = isRunning;
 
   // 描画ロジック
   const drawGrid = useCallback(() => {
@@ -117,27 +115,27 @@ export default function GameOfLife() {
     }
   };
 
-  // アニメーションループ
-  const animate = useCallback(() => {
-    if (!runningRef.current) return;
-
-    computeNextGen();
-    drawGrid();
-
-    // 実行速度を少し落とすための簡易的なウェイト（約10fps）
-    setTimeout(() => {
-      requestRef.current = requestAnimationFrame(animate);
-    }, 100);
-  }, [computeNextGen, drawGrid]);
-
+  // アニメーションループ（停止・ページ離脱時は後片付けで予約済みの次フレームを取り消す）
   useEffect(() => {
-    if (isRunning) {
-      requestRef.current = requestAnimationFrame(animate);
-    } else if (requestRef.current) {
-      cancelAnimationFrame(requestRef.current);
+    if (!isRunning) return;
+
+    let timeoutId;
+    function step() {
+      computeNextGen();
+      drawGrid();
+
+      // 実行速度を少し落とすための簡易的なウェイト（約10fps）
+      timeoutId = setTimeout(() => {
+        requestRef.current = requestAnimationFrame(step);
+      }, 100);
     }
-    return () => cancelAnimationFrame(requestRef.current);
-  }, [isRunning, animate]);
+
+    requestRef.current = requestAnimationFrame(step);
+    return () => {
+      clearTimeout(timeoutId);
+      cancelAnimationFrame(requestRef.current);
+    };
+  }, [isRunning, computeNextGen, drawGrid]);
 
   // 初回マウント時に盤面を描画
   useEffect(() => {

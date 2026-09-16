@@ -1,0 +1,26 @@
+---
+// 全ページ共通の <html> / <head>。各ページは <Layout title="..."> で包む
+import '../styles/global.css'
+import { withBase } from '../utils/withBase.js'
+
+const SITE_NAME = 'Experiment Hub'
+
+const { title, description = '計測・可視化・画像処理の実験ページ集' } = Astro.props
+const pageTitle = title ? `${title} | ${SITE_NAME}` : SITE_NAME
+---
+
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <link rel="icon" type="image/svg+xml" href={withBase('/favicon.svg')} />
+    <title>{pageTitle}</title>
+  </head>
+  <body class="min-h-screen bg-slate-950 text-slate-100 antialiased">
+    <slot />
+  </body>
+</html>

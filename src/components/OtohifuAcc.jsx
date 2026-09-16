@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { withBase } from '../utils/withBase.js';
 
 export default function OtohifuAcc() {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -16,17 +16,6 @@ export default function OtohifuAcc() {
   const velocityZRef = useRef(0);
   const positionZRef = useRef(0);
   const prevAzRef = useRef(0); // 追加: センサーのブレを吸収するためのRef
-
-  // --- Web Audio API の制御 ---
-  useEffect(() => {
-    return () => {
-      stopSound();
-      window.removeEventListener('devicemotion', handleMotion);
-      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
-        audioCtxRef.current.close();
-      }
-    };
-  }, []);
 
   const initAudio = () => {
     if (!audioCtxRef.current) {
@@ -114,6 +103,20 @@ export default function OtohifuAcc() {
     }
   }, []);
 
+  // --- ページ離脱時の後片付け（handleMotion の宣言より後に置く） ---
+  useEffect(() => {
+    return () => {
+      if (oscillatorRef.current) {
+        oscillatorRef.current.stop();
+        oscillatorRef.current.disconnect();
+      }
+      window.removeEventListener('devicemotion', handleMotion);
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+        audioCtxRef.current.close();
+      }
+    };
+  }, [handleMotion]);
+
   // --- センサーの許可と再生トグル ---
   const handleToggle = async () => {
     if (isPlaying) {
@@ -165,9 +168,9 @@ export default function OtohifuAcc() {
   return (
     <div className="bg-zinc-800 p-6 rounded-xl shadow-2xl w-72 flex flex-col items-center gap-6 mx-auto mt-10 border border-zinc-700 select-none">
       <div className="w-full flex justify-between items-center">
-        <Link to="/" className="text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors">
+        <a href={withBase('/')} className="text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors">
             ← Back
-        </Link>
+        </a>
         <button 
           onClick={handleResetPosition}
           className="text-[10px] bg-zinc-600 text-zinc-300 px-3 py-1.5 rounded hover:bg-zinc-500 transition-colors font-mono active:scale-95"

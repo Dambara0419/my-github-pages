@@ -7,6 +7,7 @@ const DISPLAY = 400   // canvas display size (px)
 const MM = 100        // print area mm
 const PREVIEW_SCALE = 5           // downsample factor for 3D preview
 const RES_OPTIONS = [1000, 1500, 2000]
+const BTN = 'cursor-pointer rounded-lg border border-transparent bg-slate-800 px-4 py-2 font-medium transition-colors hover:border-indigo-400 disabled:cursor-not-allowed disabled:opacity-40'
 
 // オブジェクト間の面共有を防ぐための微小オフセット（0.01mm）
 // 隣接する異なる色のボックスが同一面を共有するとBambuStudioがパス競合を検出するため
@@ -466,9 +467,9 @@ export default function Img2Obj() {
         {/* ─ Canvas ─ */}
         <div>
           <div className="flex gap-2 mb-2 flex-wrap">
-            <button onClick={() => fileInputRef.current.click()}>画像を選択</button>
-            <button onClick={() => imgRef.current && fitImage(imgRef.current)} disabled={!hasImage}>Fit</button>
-            <button onClick={() => imgRef.current && fitImage(imgRef.current, true)} disabled={!hasImage}>Fill</button>
+            <button className={BTN} onClick={() => fileInputRef.current.click()}>画像を選択</button>
+            <button className={BTN} onClick={() => imgRef.current && fitImage(imgRef.current)} disabled={!hasImage}>Fit</button>
+            <button className={BTN} onClick={() => imgRef.current && fitImage(imgRef.current, true)} disabled={!hasImage}>Fill</button>
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
           </div>
           <canvas
@@ -492,6 +493,7 @@ export default function Img2Obj() {
               {[1,2,3,4].map(n => (
                 <button
                   key={n}
+                  className={BTN}
                   onClick={() => { setNumColors(n); setResult(null); setStatus('') }}
                   style={{ borderColor: numColors === n ? '#646cff' : 'transparent', borderWidth: 2 }}
                 >
@@ -507,6 +509,7 @@ export default function Img2Obj() {
               {RES_OPTIONS.map(n => (
                 <button
                   key={n}
+                  className={BTN}
                   onClick={() => {
                     setResolution(n)
                     setResult(null)
@@ -540,7 +543,7 @@ export default function Img2Obj() {
             </p>
           )}
 
-          <button onClick={handlePreview} disabled={!hasImage || isProcessing}>
+          <button className={BTN} onClick={handlePreview} disabled={!hasImage || isProcessing}>
             {isProcessing ? '処理中...' : 'プレビュー生成'}
           </button>
 
@@ -569,7 +572,7 @@ export default function Img2Obj() {
                   ))}
                 </div>
               </div>
-              <button onClick={handleDownload} disabled={isProcessing}>
+              <button className={BTN} onClick={handleDownload} disabled={isProcessing}>
                 3MF をダウンロード
               </button>
               <p className="text-xs text-gray-500">
