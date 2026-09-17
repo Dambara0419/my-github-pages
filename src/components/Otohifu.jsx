@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { withBase } from '../utils/withBase.js';
+import { withBase } from '../utils/withBase';
 
 export default function Otohifu() {
   const [isPlaying, setIsPlaying] = useState(false);
