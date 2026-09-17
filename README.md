@@ -8,7 +8,7 @@ https://dambara0419.github.io/my-github-pages/
 
 - [Astro](https://astro.build/) 7（静的サイト生成）＋ React 19（動くパーツ）
 - Tailwind CSS 4
-- GitHub Pages（`gh-pages` ブランチ）
+- GitHub Pages（GitHub Actions で自動公開）
 
 ```
 src/
@@ -31,8 +31,8 @@ npm run build     # dist/ に書き出し
 
 ## 公開
 
-git に push してから：
+main に push すると、GitHub Actions が自動でビルドして公開する（1〜2分）。
 
-```bash
-npm run deploy
-```
+- 進み具合・失敗の確認：GitHub の **Actions** タブ
+- 手動で公開し直す：Actions タブ →「Deploy to GitHub Pages」→ **Run workflow**
+- 公開したくない作業は main 以外のブランチに push する

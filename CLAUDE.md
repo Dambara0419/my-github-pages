@@ -9,8 +9,9 @@ npm run dev        # Start Astro dev server (http://localhost:4321/my-github-pag
 npm run build      # Static build into dist/ (one HTML file per page)
 npm run lint       # Run ESLint (JS/JSX only; .astro files are not linted)
 npm run preview    # Preview production build locally (runs as a background daemon; stop with `npx astro preview stop`)
-npm run deploy     # Build + deploy dist/ to the gh-pages branch via gh-pages
 ```
+
+There is no deploy script: pushing to `main` deploys (see Deployment).
 
 No test suite is configured. Requires Node >= 22.12.
 
@@ -41,7 +42,7 @@ Tailwind CSS v4 via the `@tailwindcss/vite` plugin, imported once in `src/styles
 
 ### Deployment
 
-GitHub Pages serves the `gh-pages` branch with the legacy (Jekyll) build. Jekyll ignores `_`-prefixed directories, so the deploy script passes `--nojekyll`; without it Astro's `dist/_astro/` assets would 404.
+GitHub Actions (`.github/workflows/deploy.yml`) builds and publishes on every push to `main` (or manually via `workflow_dispatch`): `withastro/action` runs `npm ci` + `npm run build` on Node 24 and uploads `dist/`, then `actions/deploy-pages` publishes it. The Pages source is set to "GitHub Actions" (`build_type: workflow`), so no Jekyll step runs and the old `gh-pages` branch is no longer served. The build does not run lint, so run `npm run lint` before pushing.
 
 ### Key implementation details
 
