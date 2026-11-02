@@ -2,7 +2,13 @@
 import Layout from '../layouts/Layout.astro'
 import { withBase } from '../utils/withBase'
 
-const pages = [
+interface PageLink {
+  href: string
+  title: string
+  description: string
+}
+
+const pages: PageLink[] = [
   { href: '/otohifu/', title: 'Otohifu', description: '肘の皮膚の伸びを試すメインページ' },
   { href: '/otohifu_accelator/', title: 'Otohifu Accelator', description: '加速度センサー版の計測ページ' },
   { href: '/ca/', title: 'CA', description: 'セル・オートマトンの実験ページ' },

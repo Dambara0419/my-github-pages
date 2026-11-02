@@ -22,7 +22,7 @@ Astro 7 static site (MPA) with React 19 islands, deployed to GitHub Pages at bas
 - `src/pages/*.astro` — one file per route (file-based routing).
 - `src/components/*.jsx` — interactive React components, mounted from pages with `client:load`. Each page only ships the JS its component needs (three.js/jszip load only on `/img2obj`).
 - `src/layouts/Layout.astro` — shared `<html>`/`<head>` (lang, title `<title> | Experiment Hub`, description/OGP, favicon) and the dark page background on `<body>`.
-- `src/utils/withBase.js` — `withBase('/path')` prefixes the base path. Use it for every internal link and asset URL (both in `.astro` and `.jsx`); plain `/path` links would miss `/my-github-pages`.
+- `src/utils/withBase.ts` — `withBase('/path')` prefixes the base path. Use it for every internal link and asset URL (both in `.astro` and `.jsx`); plain `/path` links would miss `/my-github-pages`.
 - `public/` — copied as-is. `public/thatcher.html` is a standalone page (not Astro/React) that loads MediaPipe from jsDelivr.
 
 **Adding a page:** create `src/components/YourTool.jsx`, create `src/pages/your_page.astro` that wraps it in `<Layout title="..." description="...">` with `<YourTool client:load />`, and add a card to the `pages` array in `src/pages/index.astro`. Internal links use a trailing slash (`/your_page/`).

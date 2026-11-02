@@ -3,6 +3,11 @@
 import '../styles/global.css'
 import { withBase } from '../utils/withBase'
 
+interface Props {
+  title?: string
+  description?: string
+}
+
 const SITE_NAME = 'Experiment Hub'
 
 const { title, description = '計測・可視化・画像処理の実験ページ集' } = Astro.props
