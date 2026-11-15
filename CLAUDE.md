@@ -34,6 +34,7 @@ Astro 7 static site (MPA) with React 19 islands, deployed to GitHub Pages at bas
 - `/otohifu_accelator/` — `OtohifuAcc.jsx`: Same oscillator but frequency driven by `DeviceMotionEvent` (accelerometer). Requires iOS permission prompt via `DeviceMotionEvent.requestPermission()`.
 - `/ca/` — `GameOfLife.jsx`: Conway's Game of Life on a `<canvas>` (50×50, 10px cells, ~10fps via `setTimeout` + `requestAnimationFrame`)
 - `/img2obj/` — `Img2Obj.jsx`: Image-to-3MF converter for Bambu Lab AMS multi-color printing. Pipeline: upload image → crop/zoom on canvas → K-means++ color quantization → build per-color box meshes → export `.3mf` (ZIP containing 3D Manufacturing Format XML). Three.js is used for the 3D preview with OrbitControls.
+- `/spiman/` — `SpiMan.jsx`: Web version of the SpiMan tentacle design-support system (paper in `gift/`). 6 params (w, h, θunder, θsum, k, N) + bend sim S/φ → 2D SVG profile, three.js preview, cable-length deltas, STL/3MF export. Pure geometry in `src/utils/spiman.js`; the solid is built with manifold-3d (WASM) in a Web Worker (`spimanWorker.js` → `spimanSolid.js`), one manifold per unit (local frame, joint at origin) then unioned for export. `tipMode` handles the too-thin tip: passive / truncate / clamp (stop shrinking at the min scale that fits holes) / external (guide ears bounded by the extended hexagon cones).
 - `/thatcher.html` — `public/thatcher.html`: Thatcher illusion using the user's camera (standalone HTML + MediaPipe Tasks Vision)
 
 ### Styling
