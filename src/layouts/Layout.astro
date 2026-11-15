@@ -6,11 +6,17 @@ import { withBase } from '../utils/withBase'
 interface Props {
   title?: string
   description?: string
+  /** <body> の配色を差し替える（既定はツールページ共通の暗い背景） */
+  bodyClass?: string
 }
 
 const SITE_NAME = 'Experiment Hub'
 
-const { title, description = '計測・可視化・画像処理の実験ページ集' } = Astro.props
+const {
+  title,
+  description = '計測・可視化・画像処理の実験ページ集',
+  bodyClass = 'bg-slate-950 text-slate-100',
+} = Astro.props
 const pageTitle = title ? `${title} | ${SITE_NAME}` : SITE_NAME
 ---
 
@@ -25,7 +31,7 @@ const pageTitle = title ? `${title} | ${SITE_NAME}` : SITE_NAME
     <link rel="icon" type="image/svg+xml" href={withBase('/favicon.svg')} />
     <title>{pageTitle}</title>
   </head>
-  <body class="min-h-screen bg-slate-950 text-slate-100 antialiased">
+  <body class:list={['min-h-screen antialiased', bodyClass]}>
     <slot />
   </body>
 </html>
